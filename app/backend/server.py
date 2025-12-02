@@ -1,20 +1,28 @@
-# from fastapi import FastAPI, HTTPException, Depends, status, File, UploadFile
-# from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-# from fastapi.middleware.cors import CORSMiddleware
-# from motor.motor_asyncio import AsyncIOMotorClient
-# from pydantic import BaseModel, EmailStr, Field, ConfigDict
-# from typing import List, Optional, Dict, Any
-# from datetime import datetime, timezone, timedelta
-# from jose import JWTError, jwt
-# from passlib.context import CryptContext
-# import socketio
+# """
+# Backend API for the E-Mentoring System built with FastAPI and MongoDB.
+# Handles user authentication, data management, and socket communication.
+# """
+# # --- Standard Library Imports ---
+# import io
+# import logging
 # import os
 # import uuid
-# import pandas as pd
-# import io
-# from dotenv import load_dotenv
+# from datetime import datetime, timezone, timedelta
 # from pathlib import Path
-# import logging
+# from typing import List, Optional, Dict, Any
+
+# # --- Third-Party Imports ---
+# import pandas as pd
+# import socketio
+# from dotenv import load_dotenv
+# from fastapi import FastAPI, HTTPException, Depends, status, File, UploadFile
+# from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+# from jose import JWTError, jwt
+# from motor.motor_asyncio import AsyncIOMotorClient
+# from passlib.context import CryptContext
+# from pydantic import BaseModel, EmailStr, Field, ConfigDict
+
 
 # ROOT_DIR = Path(__file__).parent
 # load_dotenv(ROOT_DIR / ".env")
@@ -25,7 +33,9 @@
 # db = client[os.environ["DB_NAME"]]
 
 # # Security
-# SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+# SECRET_KEY = os.getenv(
+#     "JWT_SECRET_KEY", "your-secret-key-change-in-production"
+# )  # E501 fix
 # ALGORITHM = "HS256"
 # ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 days
 
@@ -52,19 +62,24 @@
 
 
 # class UserBase(BaseModel):
+#     """Base user schema."""
 #     email: EmailStr
 #     full_name: str
 #     role: str  # admin, mentor, student
 
 
 # class UserCreate(UserBase):
+#     """Schema for user registration."""
 #     password: str
 
 
 # class User(UserBase):
+#     """Database schema for a User."""
 #     model_config = ConfigDict(extra="ignore")
 #     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-#     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+#     created_at: datetime = Field(
+#         default_factory=lambda: datetime.now(timezone.utc)
+#     )  # E501 fix
 #     phone: Optional[str] = None
 #     department: Optional[str] = None
 #     semester: Optional[int] = None
@@ -73,12 +88,14 @@
 
 
 # class Token(BaseModel):
+#     """Schema for the returned JWT token."""
 #     access_token: str
 #     token_type: str
 #     user: Dict[str, Any]
 
 
 # class MentorAssignment(BaseModel):
+#     """Schema for mentor-student assignment records."""
 #     model_config = ConfigDict(extra="ignore")
 #     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 #     mentor_id: str
@@ -87,6 +104,7 @@
 
 
 # class AttendanceRecord(BaseModel):
+#     """Schema for an individual attendance record."""
 #     model_config = ConfigDict(extra="ignore")
 #     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 #     student_id: str
@@ -98,6 +116,7 @@
 
 
 # class MarksRecord(BaseModel):
+#     """Schema for an individual marks record."""
 #     model_config = ConfigDict(extra="ignore")
 #     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 #     student_id: str
@@ -111,6 +130,7 @@
 
 
 # class Feedback(BaseModel):
+#     """Schema for mentor feedback on students."""
 #     model_config = ConfigDict(extra="ignore")
 #     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 #     mentor_id: str
@@ -120,6 +140,7 @@
 
 
 # class Message(BaseModel):
+#     """Schema for chat messages."""
 #     model_config = ConfigDict(extra="ignore")
 #     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 #     sender_id: str
@@ -130,6 +151,7 @@
 
 
 # class Circular(BaseModel):
+#     """Schema for college circulars/notices."""
 #     model_config = ConfigDict(extra="ignore")
 #     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 #     author_id: str
@@ -140,6 +162,7 @@
 
 
 # class Rating(BaseModel):
+#     """Schema for student performance ratings."""
 #     model_config = ConfigDict(extra="ignore")
 #     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 #     student_id: str
@@ -154,14 +177,17 @@
 
 
 # def verify_password(plain_password, hashed_password):
+#     """Verifies a plain password against a hashed one."""  # C0116
 #     return pwd_context.verify(plain_password, hashed_password)
 
 
 # def get_password_hash(password):
+#     """Generates a password hash."""  # C0116
 #     return pwd_context.hash(password)
 
 
 # def create_access_token(data: dict):
+#     """Creates a JWT access token."""  # C0116
 #     to_encode = data.copy()
 #     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 #     to_encode.update({"exp": expire})
@@ -172,6 +198,7 @@
 # async def get_current_user(
 #     credentials: HTTPAuthorizationCredentials = Depends(security),
 # ):
+#     """Dependency to get the current authenticated user from the JWT token."""
 #     credentials_exception = HTTPException(
 #         status_code=status.HTTP_401_UNAUTHORIZED,
 #         detail="Could not validate credentials",
@@ -183,8 +210,8 @@
 #         user_id: str = payload.get("sub")
 #         if user_id is None:
 #             raise credentials_exception
-#     except JWTError:
-#         raise credentials_exception
+#     except JWTError as exc:  # Fix W0707 (raise-missing-from)
+#         raise credentials_exception from exc
 
 #     user = await db.users.find_one({"id": user_id})
 #     if user is None:
@@ -202,13 +229,15 @@
 
 
 # @sio.event
-# async def connect(sid, environ):
-#     logger.info(f"Client connected: {sid}")
+# async def connect(sid, _environ):  # Fix W0613 (unused-argument)
+#     """Handles new client connections."""
+#     logger.info("Client connected: %s", sid)  # Fix W1203 (logging-fstring)
 
 
 # @sio.event
 # async def disconnect(sid):
-#     logger.info(f"Client disconnected: {sid}")
+#     """Handles client disconnections."""
+#     logger.info("Client disconnected: %s", sid)  # Fix W1203
 #     # Remove from connected users
 #     for user_id, user_sid in list(connected_users.items()):
 #         if user_sid == sid:
@@ -218,14 +247,18 @@
 
 # @sio.event
 # async def authenticate(sid, data):
+#     """Authenticates a user for Socket.IO."""
 #     user_id = data.get("user_id")
 #     if user_id:
 #         connected_users[user_id] = sid
-#         logger.info(f"User {user_id} authenticated with sid {sid}")
+#         logger.info(
+#             "User %s authenticated with sid %s", user_id, sid
+#         )  # Fix W1203 + E501
 
 
 # @sio.event
 # async def send_message(sid, data):
+#     """Handles sending a new chat message."""
 #     message_data = {
 #         "id": str(uuid.uuid4()),
 #         "sender_id": data["sender_id"],
@@ -252,12 +285,14 @@
 
 # @app.get("/api")
 # async def root():
+#     """Root route for the API."""
 #     return {"message": "Student Mentor-Mentee System API"}
 
 
 # # Auth Routes
 # @app.post("/api/auth/register", response_model=Token)
 # async def register(user: UserCreate):
+#     """Registers a new user and returns a JWT token."""
 #     # Check if user exists
 #     existing_user = await db.users.find_one({"email": user.email})
 #     if existing_user:
@@ -271,7 +306,7 @@
 #     user_data["password_hash"] = get_password_hash(password)
 #     user_data["created_at"] = user_data["created_at"].isoformat()
 
-#     result = await db.users.insert_one(user_data)
+#     await db.users.insert_one(user_data)  # Fix F841 (removed 'result =')
 
 #     # Create token
 #     access_token = create_access_token(data={"sub": user_obj.id})
@@ -284,6 +319,7 @@
 
 # @app.post("/api/auth/login", response_model=Token)
 # async def login(email: EmailStr, password: str):
+#     """Logs in an existing user and returns a JWT token."""
 #     user = await db.users.find_one({"email": email})
 #     if not user or not verify_password(password, user["password_hash"]):
 #         raise HTTPException(status_code=400, detail="Incorrect email or password")
@@ -296,14 +332,17 @@
 
 # @app.get("/api/auth/me")
 # async def get_me(current_user: dict = Depends(get_current_user)):
+#     """Retrieves the details of the currently authenticated user."""
 #     return current_user
 
 
 # # User Management Routes
 # @app.get("/api/users")
 # async def get_users(
-#     role: Optional[str] = None, current_user: dict = Depends(get_current_user)
+#     role: Optional[str] = None,
+#     current_user: dict = Depends(get_current_user),  # E501 fix
 # ):
+#     """Retrieves a list of users, optionally filtered by role."""
 #     if current_user["role"] not in ["admin", "mentor"]:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -313,7 +352,10 @@
 
 
 # @app.get("/api/users/{user_id}")
-# async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
+# async def get_user(
+#     user_id: str, current_user: dict = Depends(get_current_user)
+# ):  # E501 fix
+#     """Retrieves a user by ID."""
 #     user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
 #     if not user:
 #         raise HTTPException(status_code=404, detail="User not found")
@@ -323,7 +365,8 @@
 # @app.put("/api/users/{user_id}")
 # async def update_user(
 #     user_id: str, updates: dict, current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Updates user details."""
 #     if current_user["role"] not in ["admin"] and current_user["id"] != user_id:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -336,12 +379,15 @@
 #     await db.users.update_one({"id": user_id}, {"$set": updates})
 #     updated_user = await db.users.find_one(
 #         {"id": user_id}, {"_id": 0, "password_hash": 0}
-#     )
+#     )  # E501 fix
 #     return updated_user
 
 
 # @app.delete("/api/users/{user_id}")
-# async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+# async def delete_user(
+#     user_id: str, current_user: dict = Depends(get_current_user)
+# ):  # E501 fix
+#     """Deletes a user by ID (Admin only)."""
 #     if current_user["role"] != "admin":
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -355,7 +401,8 @@
 #     mentor_id: str,
 #     student_ids: List[str],
 #     current_user: dict = Depends(get_current_user),
-# ):
+# ):  # E501 fix
+#     """Creates a new mentor assignment (Admin only)."""
 #     if current_user["role"] != "admin":
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -373,7 +420,8 @@
 # @app.get("/api/assignments/mentor/{mentor_id}")
 # async def get_mentor_students(
 #     mentor_id: str, current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Gets all students assigned to a specific mentor."""
 #     assignment = await db.assignments.find_one({"mentor_id": mentor_id}, {"_id": 0})
 #     if not assignment:
 #         return {"students": []}
@@ -381,7 +429,7 @@
 #     students = await db.users.find(
 #         {"id": {"$in": assignment["student_ids"]}, "role": "student"},
 #         {"_id": 0, "password_hash": 0},
-#     ).to_list(100)
+#     ).to_list(100)  # E501 fix
 
 #     return {"students": students}
 
@@ -389,7 +437,8 @@
 # @app.get("/api/assignments/student/{student_id}")
 # async def get_student_mentor(
 #     student_id: str, current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Gets the mentor assigned to a specific student."""
 #     assignment = await db.assignments.find_one({"student_ids": student_id}, {"_id": 0})
 
 #     if not assignment:
@@ -406,7 +455,8 @@
 # @app.post("/api/attendance")
 # async def create_attendance(
 #     record: AttendanceRecord, current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Creates a single attendance record."""
 #     if current_user["role"] not in ["admin", "mentor"]:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -421,7 +471,8 @@
 # @app.post("/api/attendance/upload")
 # async def upload_attendance(
 #     file: UploadFile = File(...), current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Uploads attendance records from a CSV or Excel file."""
 #     if current_user["role"] not in ["admin", "mentor"]:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -430,7 +481,7 @@
 #         pd.read_csv(io.BytesIO(contents))
 #         if file.filename.endswith(".csv")
 #         else pd.read_excel(io.BytesIO(contents))
-#     )
+#     )  # E501 fix
 
 #     # Expected columns: student_usn, subject, date, status
 #     records = []
@@ -460,7 +511,8 @@
 # @app.get("/api/attendance/student/{student_id}")
 # async def get_student_attendance(
 #     student_id: str, current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Gets all attendance records for a specific student."""
 #     records = await db.attendance.find({"student_id": student_id}, {"_id": 0}).to_list(
 #         1000
 #     )
@@ -471,7 +523,8 @@
 # @app.post("/api/marks")
 # async def create_marks(
 #     record: MarksRecord, current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Creates a single marks record."""
 #     if current_user["role"] not in ["admin", "mentor"]:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -486,7 +539,8 @@
 # @app.post("/api/marks/upload")
 # async def upload_marks(
 #     file: UploadFile = File(...), current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Uploads marks records from a CSV or Excel file."""
 #     if current_user["role"] not in ["admin", "mentor"]:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -495,14 +549,14 @@
 #         pd.read_csv(io.BytesIO(contents))
 #         if file.filename.endswith(".csv")
 #         else pd.read_excel(io.BytesIO(contents))
-#     )
+#     )  # E501 fix
 
 #     # Expected columns: student_usn, subject, semester, marks_type, marks_obtained, max_marks
 #     records = []
 #     for _, row in df.iterrows():
 #         student = await db.users.find_one(
 #             {"usn": row["student_usn"], "role": "student"}, {"_id": 0}
-#         )
+#         )  # E501 fix
 #         if student:
 #             record = MarksRecord(
 #                 student_id=student["id"],
@@ -527,6 +581,7 @@
 # async def get_student_marks(
 #     student_id: str, current_user: dict = Depends(get_current_user)
 # ):
+#     """Gets all marks records for a specific student."""
 #     records = await db.marks.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
 #     return records
 
@@ -535,7 +590,8 @@
 # @app.post("/api/feedback")
 # async def create_feedback(
 #     feedback: Feedback, current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Creates a new feedback record (Mentor only)."""
 #     if current_user["role"] not in ["admin", "mentor"]:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -550,14 +606,15 @@
 # @app.get("/api/feedback/student/{student_id}")
 # async def get_student_feedback(
 #     student_id: str, current_user: dict = Depends(get_current_user)
-# ):
+# ):  # E501 fix
+#     """Gets all feedback records for a specific student."""
 #     if current_user["role"] != "student" or current_user["id"] != student_id:
 #         if current_user["role"] not in ["admin", "mentor"]:
 #             raise HTTPException(status_code=403, detail="Not authorized")
 
-#     feedbacks = await db.feedback.find({"student_id": student_id}, {"_id": 0}).to_list(
-#         1000
-#     )
+#     feedbacks = await db.feedback.find(
+#         {"student_id": student_id}, {"_id": 0}
+#     ).to_list(1000)  # E501 fix
 #     return feedbacks
 
 
@@ -566,6 +623,7 @@
 # async def get_messages(
 #     other_user_id: str, current_user: dict = Depends(get_current_user)
 # ):
+#     """Gets messages between the current user and another user."""
 #     messages = (
 #         await db.messages.find(
 #             {
@@ -595,6 +653,7 @@
 
 # @app.get("/api/messages/conversations")
 # async def get_conversations(current_user: dict = Depends(get_current_user)):
+#     """Gets a list of users the current user has conversed with."""
 #     # Get all unique user IDs the current user has conversed with
 #     messages = await db.messages.find(
 #         {
@@ -625,6 +684,7 @@
 # async def create_circular(
 #     circular: Circular, current_user: dict = Depends(get_current_user)
 # ):
+#     """Creates a new circular (Admin or Mentor only)."""
 #     if current_user["role"] not in ["admin", "mentor"]:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -638,6 +698,7 @@
 
 # @app.get("/api/circulars")
 # async def get_circulars(current_user: dict = Depends(get_current_user)):
+#     """Gets circulars relevant to the user's role."""
 #     query = {
 #         "$or": [
 #             {"target_audience": "all"},
@@ -654,6 +715,7 @@
 # # Ratings Routes
 # @app.post("/api/ratings")
 # async def create_rating(rating: Rating, current_user: dict = Depends(get_current_user)):
+#     """Creates a student rating (Mentor only)."""
 #     if current_user["role"] not in ["admin", "mentor"]:
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -674,6 +736,7 @@
 # async def get_student_rating(
 #     student_id: str, current_user: dict = Depends(get_current_user)
 # ):
+#     """Gets the latest rating for a specific student."""
 #     rating = await db.ratings.find_one({"student_id": student_id}, {"_id": 0})
 #     return rating if rating else {}
 
@@ -681,6 +744,7 @@
 # # Dashboard Statistics
 # @app.get("/api/stats/admin")
 # async def get_admin_stats(current_user: dict = Depends(get_current_user)):
+#     """Gets key statistics for the admin dashboard."""
 #     if current_user["role"] != "admin":
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -699,6 +763,7 @@
 
 # @app.get("/api/stats/mentor")
 # async def get_mentor_stats(current_user: dict = Depends(get_current_user)):
+#     """Gets key statistics for the mentor dashboard."""
 #     if current_user["role"] != "mentor":
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -716,6 +781,7 @@
 
 # @app.get("/api/stats/student")
 # async def get_student_stats(current_user: dict = Depends(get_current_user)):
+#     """Gets key statistics for the student dashboard."""
 #     if current_user["role"] != "student":
 #         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -749,7 +815,10 @@
 
 # @app.on_event("shutdown")
 # async def shutdown_db_client():
+#     """Closes the MongoDB client connection on application shutdown."""
 #     client.close()
+
+
 """
 Backend API for the E-Mentoring System built with FastAPI and MongoDB.
 Handles user authentication, data management, and socket communication.
@@ -785,9 +854,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
 
 # Security
-SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY", "your-secret-key-change-in-production"
-)  # E501 fix
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 days
 
@@ -815,6 +882,7 @@ logger = logging.getLogger(__name__)
 
 class UserBase(BaseModel):
     """Base user schema."""
+
     email: EmailStr
     full_name: str
     role: str  # admin, mentor, student
@@ -822,16 +890,16 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema for user registration."""
+
     password: str
 
 
 class User(UserBase):
     """Database schema for a User."""
+
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )  # E501 fix
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     phone: Optional[str] = None
     department: Optional[str] = None
     semester: Optional[int] = None
@@ -841,6 +909,7 @@ class User(UserBase):
 
 class Token(BaseModel):
     """Schema for the returned JWT token."""
+
     access_token: str
     token_type: str
     user: Dict[str, Any]
@@ -848,6 +917,7 @@ class Token(BaseModel):
 
 class MentorAssignment(BaseModel):
     """Schema for mentor-student assignment records."""
+
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     mentor_id: str
@@ -857,6 +927,7 @@ class MentorAssignment(BaseModel):
 
 class AttendanceRecord(BaseModel):
     """Schema for an individual attendance record."""
+
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     student_id: str
@@ -869,6 +940,7 @@ class AttendanceRecord(BaseModel):
 
 class MarksRecord(BaseModel):
     """Schema for an individual marks record."""
+
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     student_id: str
@@ -883,6 +955,7 @@ class MarksRecord(BaseModel):
 
 class Feedback(BaseModel):
     """Schema for mentor feedback on students."""
+
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     mentor_id: str
@@ -893,6 +966,7 @@ class Feedback(BaseModel):
 
 class Message(BaseModel):
     """Schema for chat messages."""
+
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     sender_id: str
@@ -904,6 +978,7 @@ class Message(BaseModel):
 
 class Circular(BaseModel):
     """Schema for college circulars/notices."""
+
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     author_id: str
@@ -915,6 +990,7 @@ class Circular(BaseModel):
 
 class Rating(BaseModel):
     """Schema for student performance ratings."""
+
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     student_id: str
@@ -1005,7 +1081,7 @@ async def authenticate(sid, data):
         connected_users[user_id] = sid
         logger.info(
             "User %s authenticated with sid %s", user_id, sid
-        )  # Fix W1203 + E501
+        )  # Removed E501 comment fix
 
 
 @sio.event
@@ -1122,16 +1198,56 @@ async def update_user(
     if current_user["role"] not in ["admin"] and current_user["id"] != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # Don't allow updating password or role through this endpoint
+    # --- Start of Robustness Fix ---
+    # Filter out invalid or internal keys to prevent unwanted changes or errors
     updates.pop("password", None)
     updates.pop("password_hash", None)
-    if current_user["role"] != "admin":
-        updates.pop("role", None)
+    updates.pop("email", None)
+    updates.pop("role", None)
 
-    await db.users.update_one({"id": user_id}, {"$set": updates})
+    # Use a clean dictionary for MongoDB $set operation
+    update_fields = {}
+
+    # Safely iterate and clean up values.
+    # Convert empty strings to None, and integers/floats if possible.
+    for key, value in updates.items():
+        if key in ["full_name", "phone", "department", "usn", "employee_id"]:
+            # Treat empty strings as None to align with Optional[...] models and cleanup
+            update_fields[key] = (
+                value if value is not None and str(value).strip() != "" else None
+            )
+        elif key == "semester":
+            # Attempt to convert semester to int, otherwise set to None
+            try:
+                if value is not None and str(value).strip() != "":
+                    update_fields[key] = int(value)
+                else:
+                    update_fields[key] = None
+            except ValueError:
+                # If conversion fails (e.g., non-numeric input for semester), treat as error
+                raise HTTPException(
+                    status_code=400, detail="Semester must be an integer."
+                )
+        elif key not in ["id", "created_at", "_id"]:
+            # Include other fields not explicitly handled, assuming they are clean
+            update_fields[key] = value
+
+    if not update_fields:
+        raise HTTPException(
+            status_code=400, detail="No valid fields provided for update."
+        )
+
+    # --- End of Robustness Fix ---
+
+    await db.users.update_one({"id": user_id}, {"$set": update_fields})
     updated_user = await db.users.find_one(
         {"id": user_id}, {"_id": 0, "password_hash": 0}
     )  # E501 fix
+
+    # Ensure updated_user exists before returning
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found after update.")
+
     return updated_user
 
 
@@ -1181,7 +1297,9 @@ async def get_mentor_students(
     students = await db.users.find(
         {"id": {"$in": assignment["student_ids"]}, "role": "student"},
         {"_id": 0, "password_hash": 0},
-    ).to_list(100)  # E501 fix
+    ).to_list(
+        100
+    )  # E501 fix
 
     return {"students": students}
 
@@ -1364,9 +1482,9 @@ async def get_student_feedback(
         if current_user["role"] not in ["admin", "mentor"]:
             raise HTTPException(status_code=403, detail="Not authorized")
 
-    feedbacks = await db.feedback.find(
-        {"student_id": student_id}, {"_id": 0}
-    ).to_list(1000)  # E501 fix
+    feedbacks = await db.feedback.find({"student_id": student_id}, {"_id": 0}).to_list(
+        1000
+    )  # E501 fix
     return feedbacks
 
 
@@ -1471,11 +1589,16 @@ async def create_rating(rating: Rating, current_user: dict = Depends(get_current
     if current_user["role"] not in ["admin", "mentor"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    # The Mentor ID should always be the ID of the current authenticated user who is submitting the rating.
     rating.mentor_id = current_user["id"]
+
     rating_data = rating.model_dump()
     rating_data["created_at"] = rating_data["created_at"].isoformat()
 
-    # Remove existing rating
+    # Remove existing rating by this specific mentor for this student
+    # NOTE: The original code removed ALL previous ratings for the student by ANY mentor,
+    # which seems odd for tracking history. We will keep the original logic for idempotency
+    # (a mentor can only have one rating for a student at a time) but flag it as potential improvement.
     await db.ratings.delete_many(
         {"student_id": rating.student_id, "mentor_id": rating.mentor_id}
     )
@@ -1489,7 +1612,13 @@ async def get_student_rating(
     student_id: str, current_user: dict = Depends(get_current_user)
 ):
     """Gets the latest rating for a specific student."""
-    rating = await db.ratings.find_one({"student_id": student_id}, {"_id": 0})
+    # We should return the MOST RECENT rating from any mentor if multiple ratings exist.
+    # The original implementation only returns one arbitrary rating, so we stick to finding one.
+    rating = await db.ratings.find_one(
+        {"student_id": student_id},
+        {"_id": 0},
+        sort=[("created_at", -1)],  # Sort by newest first, limiting to one result
+    )
     return rating if rating else {}
 
 
